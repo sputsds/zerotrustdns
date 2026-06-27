@@ -1,22 +1,23 @@
 ﻿# ZeroTrustDNS
 
 Self-hosted DNS-over-HTTPS filter on Cloudflare Workers + D1.
-No terminal. No config. Fork and deploy in under 2 minutes.
+No terminal. No config. Deploy in under 2 minutes.
 
 ---
 
-## Deploy
+## Option 1 — One-click Deploy (no updates)
 
-**1. Fork** this repo (top-right Fork button)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cflover/zerotrustdns)
 
-**2.** Go to [Cloudflare Dashboard](https://dash.cloudflare.com) -> **Workers & Pages -> Create -> Connect to Git**
-Select your fork -> click **Deploy**
+No setup needed. D1 database is created automatically.
+You will NOT be able to receive future updates.
 
-> Cloudflare automatically builds the project, creates a D1 database, and binds it.
+---
 
-**3. Open your Worker URL**
+## Option 2 — Fork and Deploy (recommended)
 
-On first visit, a 64-character access key is shown once only -- save it to a password manager.
+Get future updates with one click via Sync fork.
+Follow the step-by-step guide: [DEPLOY.md](./DEPLOY.md)
 
 ---
 
@@ -25,7 +26,7 @@ On first visit, a 64-character access key is shown once only -- save it to a pas
 https://YOUR_WORKER_URL/dns-query
 
 Works on: iOS, Android, macOS, Windows, Firefox, Chrome.
-See setup instructions in the **Privacy -> Set up** tab on the dashboard.
+See setup instructions in the Privacy -> Set up tab on the dashboard.
 
 ---
 
@@ -41,8 +42,6 @@ See setup instructions in the **Privacy -> Set up** tab on the dashboard.
 ---
 
 ## Optional env vars
-
-Override in **Workers -> Settings -> Variables** if needed:
 
 | Variable | Default |
 |---|---|
