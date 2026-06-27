@@ -18,8 +18,6 @@ database_name = "zerotrustdns_db"
 [triggers]
 crons = ["*/30 * * * *"]
 
-[placement]
-mode = "smart"
 
 [vars]
 UPSTREAM_DOH = "https://qi0w15q016.cloudflare-gateway.com/dns-query"
