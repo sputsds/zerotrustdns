@@ -1,5 +1,7 @@
 # [ZeroTrustDNS](https://github.com/cflover/zerotrustdns)
 
+> 🇬🇧 English | 🇻🇳 [Tiếng Việt](README.vi.md)
+
 Self-hosted DNS-over-HTTPS filter on Cloudflare Workers + D1.
 No terminal. No config. Deploy in under 2 minutes.
 
@@ -18,11 +20,11 @@ You will NOT be able to receive future updates.
 
 Get future updates with one click via Sync fork.
 
-1. Fork repo về tài khoản của bạn
-2. Vào Cloudflare Workers & Pages → Create → connect repo fork
-3. Sửa ô **Deploy command** thành `npx wrangler deploy --x-provision`
-4. Ấn **Deploy** → D1 tự tạo, Worker tự deploy
-5. Sau này ấn **Sync fork** → Cloudflare tự redeploy bản mới nhất
+1. Fork the repo to your account
+2. Go to Cloudflare Workers & Pages → Create → connect your forked repo
+3. Change the **Deploy command** to `npx wrangler deploy --x-provision`
+4. Click **Deploy** → D1 is created automatically, Worker deploys itself
+5. Later, click **Sync fork** → Cloudflare will automatically redeploy the latest version
 
 ---
 
@@ -31,7 +33,7 @@ Get future updates with one click via Sync fork.
 https://YOUR_WORKER_URL/dns-query
 
 Works on: iOS, Android, macOS, Windows, Firefox, Chrome.
-See setup instructions in the Privacy -> Set up tab on the dashboard.
+See setup instructions in the Privacy → Set up tab on the dashboard.
 
 ---
 
