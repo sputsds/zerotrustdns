@@ -33,30 +33,11 @@ export default function LoginScreen({ onAuth }: Props) {
       background: 'var(--bg)',
     }}>
       <div style={{ width: 360 }}>
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{
-            width: 56,
-            height: 56,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 14,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 16,
-          }}>
-            <svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M32 10 L50 18 L50 32 C50 44 40 54 32 57 C24 54 14 44 14 32 L14 18 Z" stroke="#38bdf8" strokeWidth="3" fill="none"/>
-              <circle cx="32" cy="33" r="7" fill="#38bdf8"/>
-              <path d="M32 26 L32 18" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
-          </div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.3px' }}>ZeroTrustDNS</h1>
           <p style={{ color: 'var(--text-muted)', marginTop: 4, fontSize: 13 }}>Enter your access key to continue</p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <input
             type="password"

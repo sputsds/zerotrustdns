@@ -121,4 +121,3 @@ export default function RulesView({ ruleType, title, description, placeholder }:
     </div>
   );
 }
-

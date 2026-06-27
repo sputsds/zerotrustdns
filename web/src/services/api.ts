@@ -1,7 +1,19 @@
 let accessKey = '';
 
-export function setKey(key: string) { accessKey = key; }
+export function setKey(key: string) {
+  accessKey = key;
+  try { localStorage.setItem('ztdns_key', key); } catch {}
+}
 export function getKey() { return accessKey; }
+
+export function loadSavedKey(): string {
+  try { return localStorage.getItem('ztdns_key') || ''; } catch { return ''; }
+}
+
+export function clearSavedKey() {
+  accessKey = '';
+  try { localStorage.removeItem('ztdns_key'); } catch {}
+}
 
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
   return fetch(path, {
@@ -55,6 +67,8 @@ export const api = {
     const res = await apiFetch('/api/rules');
     return res.ok;
   },
+
+  changeKey: (newKey: string) => post<{ ok: boolean }>('/api/change-key', { newKey }),
 
   // Rules
   getRules: () => get<Rule[]>('/api/rules'),

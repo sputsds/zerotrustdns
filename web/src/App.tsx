@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, setKey } from './services/api';
+import { api, setKey, loadSavedKey } from './services/api';
 import FirstRunScreen from './components/FirstRunScreen';
 import LoginScreen from './components/LoginScreen';
 import Layout from './components/Layout';
@@ -18,24 +18,31 @@ export default function App() {
   useEffect(() => {
     api.getStatus().then(status => {
       if (!status.initialized) {
-        // First deploy — auto-generate key
         api.setup().then(res => {
           if (res.key) {
             setFirstRunKey(res.key);
             setState('first-run');
           } else {
-            // Race condition: another tab already initialized, go to login
             setState('login');
           }
         }).catch(() => setState('login'));
       } else {
-        setState('login');
+        // Try auto-login with saved key
+        const saved = loadSavedKey();
+        if (saved) {
+          setKey(saved);
+          api.checkAuth().then(ok => {
+            if (ok) setState('dashboard');
+            else setState('login');
+          }).catch(() => setState('login'));
+        } else {
+          setState('login');
+        }
       }
     }).catch(() => setState('login'));
   }, []);
 
   function handleFirstRunConfirmed() {
-    // Auto-login with the just-generated key
     setKey(firstRunKey);
     setState('dashboard');
   }

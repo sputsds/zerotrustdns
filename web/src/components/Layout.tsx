@@ -8,11 +8,11 @@ interface Props {
   children: ReactNode;
 }
 
-const tabs: { id: Tab; label: string; icon: string }[] = [
-  { id: 'privacy', label: 'Privacy', icon: '🛡️' },
-  { id: 'allowlist', label: 'Allowlist', icon: '✅' },
-  { id: 'denylist', label: 'Denylist', icon: '🚫' },
-  { id: 'analytics', label: 'Analytics', icon: '📊' },
+const tabs: { id: Tab; label: string }[] = [
+  { id: 'privacy', label: 'Privacy' },
+  { id: 'allowlist', label: 'Allowlist' },
+  { id: 'denylist', label: 'Denylist' },
+  { id: 'analytics', label: 'Analytics' },
 ];
 
 export default function Layout({ activeTab, onTabChange, children }: Props) {
@@ -28,17 +28,12 @@ export default function Layout({ activeTab, onTabChange, children }: Props) {
         flexShrink: 0,
         padding: '20px 12px',
       }}>
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px', marginBottom: 28 }}>
-          <svg width="22" height="22" viewBox="0 0 64 64" fill="none">
-            <path d="M32 10 L50 18 L50 32 C50 44 40 54 32 57 C24 54 14 44 14 32 L14 18 Z" stroke="#38bdf8" strokeWidth="3" fill="none"/>
-            <circle cx="32" cy="33" r="6" fill="#38bdf8"/>
-            <path d="M32 27 L32 18" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
+        {/* Logo - no icon, no link */}
+        <div style={{ padding: '0 8px', marginBottom: 28 }}>
           <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', letterSpacing: '-0.2px' }}>ZeroTrustDNS</span>
         </div>
 
-        {/* Nav */}
+        {/* Nav - text only, no icons */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {tabs.map(tab => (
             <button
@@ -47,7 +42,6 @@ export default function Layout({ activeTab, onTabChange, children }: Props) {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 10,
                 padding: '9px 12px',
                 borderRadius: 'var(--radius)',
                 background: activeTab === tab.id ? 'rgba(56,189,248,0.1)' : 'transparent',
@@ -60,13 +54,11 @@ export default function Layout({ activeTab, onTabChange, children }: Props) {
                 transition: 'all 0.15s',
               }}
             >
-              <span style={{ fontSize: 15 }}>{tab.icon}</span>
               {tab.label}
             </button>
           ))}
         </nav>
 
-        {/* Spacer */}
         <div style={{ flex: 1 }} />
 
         {/* DoH info */}

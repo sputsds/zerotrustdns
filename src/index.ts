@@ -225,6 +225,15 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
     return json({ ok: true });
   }
 
+  if (pathname === '/api/change-key' && request.method === 'POST') {
+    const { newKey } = await parseBody<{ newKey: string }>(request);
+    if (!newKey || newKey.length < 16) return json({ error: 'Key too short' }, 400);
+    const keyModel = new KeyModel(env.DB);
+    const hash = await KeyModel.hash(newKey);
+    await keyModel.setHash(hash);
+    return json({ ok: true });
+  }
+
   if (pathname === '/api/sync' && request.method === 'POST') {
     const { handleScheduled } = await import('./cron');
     await handleScheduled({} as any, env);
