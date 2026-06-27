@@ -31,6 +31,7 @@ export interface DNSQuery {
   name: string;
   type: string;
   raw: Uint8Array;
+  clientIp?: string;
 }
 
 export interface ResolutionResult {

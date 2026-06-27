@@ -1,6 +1,7 @@
 import { Env, DNSQuery, ResolutionResult, Rule } from "../types";
 import { BloomFilter } from "../utils/bloom";
 import { LogModel, BloomStorage } from "../models";
+import { injectEcsIntoQuery } from "../utils/dns/injectEcs";
 
 // ── In-memory bloom cache ──────────────────────────────────────────────────
 
@@ -38,9 +39,17 @@ function buildNXDOMAIN(query: Uint8Array): Uint8Array {
   return resp;
 }
 
-async function forwardToUpstream(query: Uint8Array, upstreamUrl: string, timeoutMs = 5000): Promise<Uint8Array> {
+async function forwardToUpstream(query: Uint8Array, upstreamUrl: string, timeoutMs = 5000, clientIp?: string): Promise<Uint8Array> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  // Inject ECS nếu có client IP
+  if (clientIp) {
+    const isV6 = clientIp.includes(':');
+    const cidr = isV6 ? clientIp + '/48' : clientIp.split('.').slice(0, 3).join('.') + '.0/24';
+    query = injectEcsIntoQuery(query, cidr);
+  }
+
   try {
     const res = await fetch(upstreamUrl, {
       method: 'POST',
@@ -69,7 +78,7 @@ export async function resolveDNS(
   const allowRule = rules.find(r => r.type === 'ALLOW' && (domain === r.domain || domain.endsWith(`.${r.domain}`)));
   if (allowRule) {
     try {
-      const answer = await forwardToUpstream(query.raw, upstream);
+      const answer = await forwardToUpstream(query.raw, upstream, 5000, query.clientIp);
       return { answer, ttl: 60, action: 'PASS', reason: `Allowlist: ${allowRule.domain}` };
     } catch {
       return { answer: new Uint8Array(), ttl: 0, action: 'FAIL', reason: 'Upstream error' };
@@ -98,7 +107,7 @@ export async function resolveDNS(
 
   // 4. Forward
   try {
-    const answer = await forwardToUpstream(query.raw, upstream);
+    const answer = await forwardToUpstream(query.raw, upstream, 5000, query.clientIp);
     return { answer, ttl: 60, action: 'PASS' };
   } catch {
     return { answer: new Uint8Array(), ttl: 0, action: 'FAIL', reason: 'Upstream error' };
@@ -136,7 +145,8 @@ export async function parseDNSQuery(request: Request): Promise<DNSQuery | null> 
     const typeNum = (raw[offset] << 8) | raw[offset + 1];
     const type = TYPE_NAMES[typeNum] || String(typeNum);
 
-    return { name, type, raw };
+    const clientIp = request.headers.get("CF-Connecting-IP") || undefined;
+    return { name, type, raw, clientIp };
   } catch {
     return null;
   }
