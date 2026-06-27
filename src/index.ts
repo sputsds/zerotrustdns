@@ -1,61 +1,41 @@
-import { Env } from "./types";
+import { Env, Rule } from "./types";
 import { RuleModel, ListModel, LogModel, KeyModel, SettingsModel } from "./models";
-import { resolveDNS, parseDNSQuery } from "./pipeline";
+import { resolveDNS, parseDNSQuery, invalidateBloomCache } from "./pipeline";
 
-// ── DB Bootstrap (runs CREATE TABLE IF NOT EXISTS on first request) ────────
+// ── In-memory caches for hot path (rules + upstream URL) ──────────────────
+// These avoid D1 queries on every DNS request.
+// TTL: 60s — rule changes in the UI propagate within 1 minute.
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS lists (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  url TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL,
-  type TEXT CHECK(type IN ('block', 'allow')) NOT NULL DEFAULT 'block',
-  enabled INTEGER DEFAULT 1,
-  last_synced_at INTEGER,
-  domain_count INTEGER DEFAULT 0,
-  sync_error TEXT
-);
-CREATE TABLE IF NOT EXISTS rules (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  type TEXT CHECK(type IN ('ALLOW', 'BLOCK')) NOT NULL,
-  domain TEXT NOT NULL UNIQUE
-);
-CREATE TABLE IF NOT EXISTS bloom_chunks (
-  chunk_index INTEGER PRIMARY KEY,
-  data BLOB NOT NULL,
-  updated_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS bloom_meta (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  timestamp INTEGER NOT NULL,
-  domain TEXT NOT NULL,
-  record_type TEXT NOT NULL,
-  action TEXT CHECK(action IN ('PASS', 'BLOCK')) NOT NULL,
-  reason TEXT
-);
-CREATE TABLE IF NOT EXISTS kv (
-  key TEXT PRIMARY KEY,
-  value TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_logs_time ON logs(timestamp);
-CREATE INDEX IF NOT EXISTS idx_logs_domain ON logs(domain);
-CREATE INDEX IF NOT EXISTS idx_rules_domain ON rules(domain);
-`;
+interface RulesCache { rules: Rule[]; at: number; }
+interface UpstreamCache { url: string; at: number; }
 
-let bootstrapped = false;
+let _rulesCache: RulesCache | null = null;
+let _upstreamCache: UpstreamCache | null = null;
+const HOT_CACHE_TTL = 60_000; // 60 seconds
 
-async function bootstrapDB(env: Env): Promise<void> {
-  if (bootstrapped) return;
-  // D1 doesn't support multi-statement exec, split on semicolons
-  const stmts = SCHEMA.split(';').map(s => s.trim()).filter(Boolean);
-  for (const sql of stmts) {
-    await env.DB.prepare(sql).run();
+async function getCachedRules(db: D1Database): Promise<Rule[]> {
+  if (_rulesCache && Date.now() - _rulesCache.at < HOT_CACHE_TTL) {
+    return _rulesCache.rules;
   }
-  bootstrapped = true;
+  const rules = await new RuleModel(db).getAll();
+  _rulesCache = { rules, at: Date.now() };
+  return rules;
+}
+
+async function getCachedUpstream(db: D1Database, envDefault: string | undefined): Promise<string> {
+  if (_upstreamCache && Date.now() - _upstreamCache.at < HOT_CACHE_TTL) {
+    return _upstreamCache.url;
+  }
+  const fromDB = await new SettingsModel(db).get('upstream_doh');
+  const url = fromDB || envDefault || 'https://security.cloudflare-dns.com/dns-query';
+  _upstreamCache = { url, at: Date.now() };
+  return url;
+}
+
+// Invalidate hot caches — called after any write to rules or settings
+function invalidateHotCaches() {
+  _rulesCache = null;
+  _upstreamCache = null;
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -91,8 +71,8 @@ async function parseBody<T>(request: Request): Promise<T> {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // Bootstrap DB schema on every cold start (idempotent)
-    await bootstrapDB(env);
+    // NOTE: bootstrapDB() removed from hot path.
+    // Run migrations once via: wrangler d1 execute zerotrustdns_db --file=migrations/0000_init.sql --remote
 
     const url = new URL(request.url);
     const { pathname } = url;
@@ -129,7 +109,6 @@ export default {
   },
 
   async scheduled(event: any, env: Env, ctx: any): Promise<void> {
-    await bootstrapDB(env);
     const { handleScheduled } = await import('./cron');
     await handleScheduled(event, env);
   }
@@ -158,21 +137,16 @@ async function handleDoH(request: Request, env: Env, ctx: ExecutionContext): Pro
   const query = await parseDNSQuery(request);
   if (!query) return new Response('Bad Request', { status: 400 });
 
-  const ruleModel = new RuleModel(env.DB);
-  const logModel = new LogModel(env.DB);
-  const settingsModel = new SettingsModel(env.DB);
-  const rules = await ruleModel.getAll();
-
-  // Upstream: DB setting takes priority over wrangler.toml env var
-  const upstreamFromDB = await settingsModel.get('upstream_doh');
-  const upstreamEnv = { ...env, UPSTREAM_DOH: upstreamFromDB || env.UPSTREAM_DOH };
+  // Use cached rules + upstream — no D1 query on hot path unless cache is stale
+  const rules = await getCachedRules(env.DB);
+  const upstreamUrl = await getCachedUpstream(env.DB, env.UPSTREAM_DOH);
+  const upstreamEnv = { ...env, UPSTREAM_DOH: upstreamUrl };
 
   const result = await resolveDNS(query, rules, upstreamEnv);
 
   if (result.action !== 'FAIL') {
-    // Use waitUntil so the log write completes even after response is returned
     ctx.waitUntil(
-      logModel.add({
+      new LogModel(env.DB).add({
         timestamp: Math.floor(Date.now() / 1000),
         domain: query.name,
         record_type: query.type,
@@ -205,11 +179,13 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
     const { type, domain } = await parseBody<{ type: 'ALLOW' | 'BLOCK'; domain: string }>(request);
     if (!['ALLOW', 'BLOCK'].includes(type) || !domain) return json({ error: 'Invalid' }, 400);
     await ruleModel.add(type, domain);
+    invalidateHotCaches(); // rule mới → clear cache ngay
     return json({ ok: true });
   }
   const ruleMatch = pathname.match(/^\/api\/rules\/(\d+)$/);
   if (ruleMatch && request.method === 'DELETE') {
     await ruleModel.remove(Number(ruleMatch[1]));
+    invalidateHotCaches(); // rule bị xoá → clear cache ngay
     return json({ ok: true });
   }
 
@@ -239,7 +215,6 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
     if (!newKey || newKey.length < 16) return json({ error: 'Key too short' }, 400);
     if (!currentKey) return json({ error: 'Current key required' }, 400);
     const keyModel = new KeyModel(env.DB);
-    // Verify current key before allowing change
     const storedHash = await keyModel.getHash();
     const currentHash = await KeyModel.hash(currentKey);
     if (currentHash !== storedHash) return json({ error: 'Current key is incorrect' }, 403);
@@ -251,6 +226,7 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
   if (pathname === '/api/sync' && request.method === 'POST') {
     const { handleScheduled } = await import('./cron');
     await handleScheduled({} as any, env);
+    invalidateBloomCache(); // bloom vừa rebuild → clear
     return json({ ok: true });
   }
 
@@ -278,6 +254,7 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
     if (!upstream_doh || !upstream_doh.startsWith('https://')) return json({ error: 'Invalid upstream URL' }, 400);
     const settingsModel = new SettingsModel(env.DB);
     await settingsModel.set('upstream_doh', upstream_doh);
+    invalidateHotCaches(); // upstream đổi → clear cache ngay
     return json({ ok: true });
   }
 

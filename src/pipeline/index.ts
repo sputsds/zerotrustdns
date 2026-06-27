@@ -2,6 +2,7 @@ import { Env, DNSQuery, ResolutionResult, Rule } from "../types";
 import { BloomFilter } from "../utils/bloom";
 import { LogModel, BloomStorage } from "../models";
 import { injectEcsIntoQuery } from "../utils/dns/injectEcs";
+import { dnsCache } from "./cache";
 
 // ── In-memory bloom cache ──────────────────────────────────────────────────
 
@@ -74,12 +75,21 @@ export async function resolveDNS(
   const domain = query.name.toLowerCase();
   const upstream = env.UPSTREAM_DOH || 'https://qi0w15q016.cloudflare-gateway.com/dns-query';
 
+  // 0. DNS response cache — skip all processing if we've seen this domain recently
+  const cacheKey = `${domain}:${query.type}`;
+  const cached = dnsCache.get(cacheKey);
+  if (cached) {
+    return { answer: cached.answer, ttl: 60, action: cached.action, reason: cached.reason };
+  }
+
   // 1. Allow rules (exact + subdomain)
   const allowRule = rules.find(r => r.type === 'ALLOW' && (domain === r.domain || domain.endsWith(`.${r.domain}`)));
   if (allowRule) {
     try {
       const answer = await forwardToUpstream(query.raw, upstream, 5000, query.clientIp);
-      return { answer, ttl: 60, action: 'PASS', reason: `Allowlist: ${allowRule.domain}` };
+      const result: ResolutionResult = { answer, ttl: 60, action: 'PASS', reason: `Allowlist: ${allowRule.domain}` };
+      dnsCache.set(cacheKey, { answer, action: 'PASS', reason: result.reason }, 60);
+      return result;
     } catch {
       return { answer: new Uint8Array(), ttl: 0, action: 'FAIL', reason: 'Upstream error' };
     }
@@ -88,7 +98,10 @@ export async function resolveDNS(
   // 2. Block rules (exact + subdomain)
   const blockRule = rules.find(r => r.type === 'BLOCK' && (domain === r.domain || domain.endsWith(`.${r.domain}`)));
   if (blockRule) {
-    return { answer: buildNXDOMAIN(query.raw), ttl: 60, action: 'BLOCK', reason: `Denylist: ${blockRule.domain}` };
+    const answer = buildNXDOMAIN(query.raw);
+    const reason = `Denylist: ${blockRule.domain}`;
+    dnsCache.set(cacheKey, { answer, action: 'BLOCK', reason }, 60);
+    return { answer, ttl: 60, action: 'BLOCK', reason };
   }
 
   // 3. Bloom filter check (external lists)
@@ -97,7 +110,10 @@ export async function resolveDNS(
     let check = domain;
     while (check) {
       if (bloom.test(check)) {
-        return { answer: buildNXDOMAIN(query.raw), ttl: 60, action: 'BLOCK', reason: `Filter list: ${check}` };
+        const answer = buildNXDOMAIN(query.raw);
+        const reason = `Filter list: ${check}`;
+        dnsCache.set(cacheKey, { answer, action: 'BLOCK', reason }, 300);
+        return { answer, ttl: 60, action: 'BLOCK', reason };
       }
       const dot = check.indexOf('.');
       if (dot === -1) break;
@@ -108,6 +124,7 @@ export async function resolveDNS(
   // 4. Forward
   try {
     const answer = await forwardToUpstream(query.raw, upstream, 5000, query.clientIp);
+    dnsCache.set(cacheKey, { answer, action: 'PASS' }, 60);
     return { answer, ttl: 60, action: 'PASS' };
   } catch {
     return { answer: new Uint8Array(), ttl: 0, action: 'FAIL', reason: 'Upstream error' };

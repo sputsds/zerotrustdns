@@ -8,7 +8,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # 1. Check wrangler
-Write-Host "[1/4] Checking wrangler..." -ForegroundColor Yellow
+Write-Host "[1/5] Checking wrangler..." -ForegroundColor Yellow
 try {
     npx wrangler --version | Out-Null
 } catch {
@@ -18,16 +18,15 @@ try {
 
 # 2. Login Cloudflare
 Write-Host ""
-Write-Host "[2/4] Login to Cloudflare (browser will open)..." -ForegroundColor Yellow
+Write-Host "[2/5] Login to Cloudflare (browser will open)..." -ForegroundColor Yellow
 npx wrangler login
 
 # 3. Create D1 database
 Write-Host ""
-Write-Host "[3/4] Creating D1 database 'zerotrustdns_db'..." -ForegroundColor Yellow
+Write-Host "[3/5] Creating D1 database 'zerotrustdns_db'..." -ForegroundColor Yellow
 
 $output = npx wrangler d1 create zerotrustdns_db 2>&1 | Out-String
 
-# Check if already exists
 if ($output -match "already exists") {
     Write-Host "Database already exists, fetching ID..." -ForegroundColor Gray
     $listOutput = npx wrangler d1 list 2>&1 | Out-String
@@ -39,7 +38,6 @@ if ($output -match "already exists") {
 }
 
 if (-not $dbId) {
-    # fallback: parse from list
     $listOutput = npx wrangler d1 list 2>&1 | Out-String
     if ($listOutput -match "([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})") {
         $dbId = $matches[1]
@@ -55,28 +53,29 @@ Write-Host "Database ID: $dbId" -ForegroundColor Green
 
 # 4. Update wrangler.toml
 Write-Host ""
-Write-Host "[4/4] Updating wrangler.toml..." -ForegroundColor Yellow
+Write-Host "[4/5] Updating wrangler.toml..." -ForegroundColor Yellow
 
 $toml = Get-Content wrangler.toml -Raw
 
 if ($toml -match "database_id") {
-    # Replace existing
     $toml = $toml -replace 'database_id\s*=\s*"[^"]*"', "database_id = `"$dbId`""
 } else {
-    # Insert after database_name line
     $toml = $toml -replace '(database_name\s*=\s*"zerotrustdns_db")', "`$1`ndatabase_id = `"$dbId`""
 }
 
 $toml | Set-Content wrangler.toml -NoNewline
+
+# 5. Run migration against remote D1
+Write-Host ""
+Write-Host "[5/5] Running database migration..." -ForegroundColor Yellow
+npx wrangler d1 execute zerotrustdns_db --remote --file=migrations/0000_init.sql
+Write-Host "Migration complete." -ForegroundColor Green
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "   Setup complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "Now run to deploy:" -ForegroundColor Cyan
+Write-Host "Now deploy with:" -ForegroundColor Cyan
 Write-Host "   npx wrangler deploy" -ForegroundColor White
-Write-Host ""
-Write-Host "Then run migration:" -ForegroundColor Cyan
-Write-Host "   npx wrangler d1 execute zerotrustdns_db --remote --file=migrations/0000_init.sql" -ForegroundColor White
 Write-Host ""
