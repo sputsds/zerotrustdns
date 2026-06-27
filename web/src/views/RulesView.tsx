@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
-import { api, Rule } from '../../services/api';
+import { api, Rule } from '../services/api';
 
 interface Props {
   ruleType: 'ALLOW' | 'BLOCK';
