@@ -11,9 +11,11 @@ command = "npm run build"
 directory = "./static"
 binding = "ASSETS"
 
+# D1 is auto-provisioned on first deploy — no database_id needed
 [[d1_databases]]
 binding = "DB"
 database_name = "zerotrustdns_db"
+database_id = "fad50089-872f-44a5-8e0c-efe3e40ef9d9"
 
 [triggers]
 crons = ["*/30 * * * *"]

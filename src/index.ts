@@ -225,6 +225,12 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
     return json({ ok: true });
   }
 
+  if (pathname === '/api/sync' && request.method === 'POST') {
+    const { handleScheduled } = await import('./cron');
+    await handleScheduled({} as any, env);
+    return json({ ok: true });
+  }
+
   if (pathname === '/api/logs' && request.method === 'GET') {
     const limit = Math.min(Number(searchParams.get('limit') || '200'), 1000);
     return json(await logModel.getRecent(limit));

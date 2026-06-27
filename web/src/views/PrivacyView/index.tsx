@@ -22,6 +22,7 @@ export default function PrivacyView() {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
   const [seeded, setSeeded] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   async function load() {
     try {
@@ -41,6 +42,15 @@ export default function PrivacyView() {
       seedDefaults();
     }
   }, [loading, lists.length]);
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      await api.syncLists();
+      await load();
+    } catch { /* ignore */ }
+    finally { setSyncing(false); }
+  }
 
   async function seedDefaults() {
     for (const l of DEFAULT_LISTS) {
@@ -141,12 +151,17 @@ export default function PrivacyView() {
 
       {/* Lists table */}
       <div className="card">
-        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
-          Active Lists
-          <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontWeight: 400, fontSize: 12 }}>
-            {lists.length} total
-          </span>
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>
+            Active Lists
+            <span style={{ marginLeft: 8, color: 'var(--text-muted)', fontWeight: 400, fontSize: 12 }}>
+              {lists.length} total
+            </span>
+          </h3>
+          <button className="btn-primary" onClick={handleSync} disabled={syncing} style={{ fontSize: 12, padding: '6px 14px' }}>
+            {syncing ? 'Syncing…' : '↻ Sync Now'}
+          </button>
+        </div>
 
         {loading ? (
           <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading…</p>

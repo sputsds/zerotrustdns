@@ -63,6 +63,7 @@ export const api = {
 
   // Lists
   getLists: () => get<List[]>('/api/lists'),
+  syncLists: () => post('/api/sync', {}),
   addList: (url: string, name: string, type: 'block' | 'allow' = 'block') => post('/api/lists', { url, name, type }),
   deleteList: (id: number) => del(`/api/lists/${id}`),
   toggleList: (id: number, enabled: boolean) => patch(`/api/lists/${id}`, { enabled }),
