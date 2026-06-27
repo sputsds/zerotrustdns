@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, setKey, loadSavedKey } from './services/api';
 import FirstRunScreen from './components/FirstRunScreen';
 import LoginScreen from './components/LoginScreen';
@@ -22,6 +22,7 @@ export default function App() {
   const [state, setState] = useState<AppState>('loading');
   const [firstRunKey, setFirstRunKey] = useState('');
   const [tab, setTab] = useState<Tab>(getHashTab);
+  const didInit = useRef(false); // ← FIX: prevent double-call in React StrictMode
 
   // Keep URL hash in sync with active tab
   useEffect(() => {
@@ -36,6 +37,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (didInit.current) return; // ← FIX: skip if already ran
+    didInit.current = true;
+
     api.getStatus().then(status => {
       if (!status.initialized) {
         api.setup().then(res => {
