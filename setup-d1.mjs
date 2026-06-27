@@ -7,7 +7,10 @@ if (toml.match(/database_id\s*=\s*"[a-f0-9-]{36}"/)) {
   process.exit(0);
 }
 
-console.log('Creating D1 database...');
+// No database_id in wrangler.toml — try to create one.
+// If this fails (e.g. Cloudflare one-click deploy manages D1 automatically),
+// just skip and let Cloudflare handle the binding.
+console.log('No database_id found, attempting to create D1 database...');
 try {
   const out = execSync('npx wrangler d1 create zerotrustdns_db 2>&1', { encoding: 'utf8' });
   const match = out.match(/database_id\s*=\s*"([a-f0-9-]{36})"/);
@@ -17,6 +20,5 @@ try {
   writeFileSync('wrangler.toml', toml.replace('database_name = "zerotrustdns_db"', `database_name = "zerotrustdns_db"\ndatabase_id = "${id}"`));
   console.log('wrangler.toml updated.');
 } catch(e) {
-  console.error(e.message);
-  process.exit(1);
+  console.log('Could not create D1 via CLI (this is expected on one-click deploy — Cloudflare manages the binding automatically). Skipping.');
 }
