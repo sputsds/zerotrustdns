@@ -50,7 +50,7 @@ export default function AnalyticsView() {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
         <StatCard
           label="Total Queries"
           value={loading ? '…' : (stats?.total ?? 0).toLocaleString()}

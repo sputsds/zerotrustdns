@@ -17,9 +17,9 @@ const tabs: { id: Tab; label: string }[] = [
 
 export default function Layout({ activeTab, onTabChange, children }: Props) {
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* Sidebar */}
-      <aside style={{
+    <div className="layout-root" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      {/* Sidebar / Top nav on mobile */}
+      <aside className="layout-sidebar" style={{
         width: 'var(--sidebar-w)',
         background: 'var(--surface)',
         borderRight: '1px solid var(--border)',
@@ -28,8 +28,8 @@ export default function Layout({ activeTab, onTabChange, children }: Props) {
         flexShrink: 0,
         padding: '20px 12px',
       }}>
-        {/* Logo — clicking navigates to setup (home) */}
-        <div style={{ padding: '0 8px', marginBottom: 28 }}>
+        {/* Logo */}
+        <div className="layout-logo" style={{ padding: '0 8px', marginBottom: 28 }}>
           <a
             href="#setup"
             onClick={(e) => { e.preventDefault(); onTabChange('setup'); }}
@@ -47,7 +47,7 @@ export default function Layout({ activeTab, onTabChange, children }: Props) {
         </div>
 
         {/* Nav */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <nav className="layout-nav" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -72,12 +72,11 @@ export default function Layout({ activeTab, onTabChange, children }: Props) {
           ))}
         </nav>
 
-        <div style={{ flex: 1 }} />
-        {/* DoH endpoint widget removed */}
+        <div className="layout-spacer" style={{ flex: 1 }} />
       </aside>
 
       {/* Main content */}
-      <main style={{
+      <main className="layout-main" style={{
         flex: 1,
         overflow: 'auto',
         padding: '28px 32px',

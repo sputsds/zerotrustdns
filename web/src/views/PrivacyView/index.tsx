@@ -4,7 +4,7 @@ import { api, List } from '../../services/api';
 const DEFAULT_LISTS: { url: string; name: string; type: 'block' | 'allow' }[] = [
   {
     name: 'AdGuard DNS Filter',
-    url: 'https://adguardteam.github.io/AdguardFilters/BaseFilter/sections/adservers.txt',
+    url: 'https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt',
     type: 'block',
   },
   {
@@ -89,14 +89,12 @@ export default function PrivacyView() {
   return (
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Privacy</h2>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>
-        Manage blocklists.
-      </p>
+      <p style={{ color: 'var(--text-muted)', marginBottom: 24 }}>Manage blocklists.</p>
 
       {/* Add list form */}
       <div className="card" style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>Add Filter List</h3>
-        <form onSubmit={handleAdd} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <form className="add-list-form" onSubmit={handleAdd} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input type="text" placeholder="List name" value={addName} onChange={e => setAddName(e.target.value)} style={{ width: 200, flex: 'none' }} />
           <input type="url" placeholder="https://example.com/blocklist.txt" value={addUrl} onChange={e => setAddUrl(e.target.value)} style={{ flex: 1, minWidth: 260 }} />
           <button type="submit" className="btn-primary" disabled={adding || !addUrl.trim() || !addName.trim()} style={{ flex: 'none' }}>
@@ -123,52 +121,54 @@ export default function PrivacyView() {
         ) : lists.length === 0 ? (
           <div className="empty">No lists added yet.</div>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Enabled</th>
-                <th>Name</th>
-                <th>Domains</th>
-                <th>Last Synced</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {lists.map(list => (
-                <tr key={list.id}>
-                  <td>
-                    <label className="toggle">
-                      <input type="checkbox" checked={list.enabled} onChange={() => handleToggle(list)} />
-                      <span className="toggle-slider" />
-                    </label>
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 500 }}>{list.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                      <a href={list.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} title={list.url}>
-                        {list.url.length > 60 ? list.url.slice(0, 60) + '…' : list.url}
-                      </a>
-                    </div>
-                  </td>
-                  <td>{list.domain_count ? list.domain_count.toLocaleString() : '—'}</td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{formatDate(list.last_synced_at)}</td>
-                  <td>
-                    {list.sync_error ? (
-                      <span className="badge badge-block" title={list.sync_error}>Error</span>
-                    ) : list.last_synced_at ? (
-                      <span className="badge badge-enabled">Synced</span>
-                    ) : (
-                      <span className="badge badge-disabled">Pending</span>
-                    )}
-                  </td>
-                  <td>
-                    <button className="btn-danger" onClick={() => handleDelete(list.id)}>Remove</button>
-                  </td>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Enabled</th>
+                  <th>Name</th>
+                  <th className="col-hide-mobile">Domains</th>
+                  <th className="col-hide-mobile">Last Synced</th>
+                  <th>Status</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {lists.map(list => (
+                  <tr key={list.id}>
+                    <td>
+                      <label className="toggle">
+                        <input type="checkbox" checked={list.enabled} onChange={() => handleToggle(list)} />
+                        <span className="toggle-slider" />
+                      </label>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 500 }}>{list.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                        <a href={list.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }} title={list.url}>
+                          {list.url.length > 50 ? list.url.slice(0, 50) + '…' : list.url}
+                        </a>
+                      </div>
+                    </td>
+                    <td className="col-hide-mobile">{list.domain_count ? list.domain_count.toLocaleString() : '—'}</td>
+                    <td className="col-hide-mobile" style={{ color: 'var(--text-muted)', fontSize: 12 }}>{formatDate(list.last_synced_at)}</td>
+                    <td>
+                      {list.sync_error ? (
+                        <span className="badge badge-block" title={list.sync_error}>Error</span>
+                      ) : list.last_synced_at ? (
+                        <span className="badge badge-enabled">Synced</span>
+                      ) : (
+                        <span className="badge badge-disabled">Pending</span>
+                      )}
+                    </td>
+                    <td>
+                      <button className="btn-danger" onClick={() => handleDelete(list.id)}>Remove</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

@@ -148,3 +148,74 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   padding: 48px 16px;
   font-size: 13px;
 }
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  /* Layout: stack sidebar on top as a top nav bar */
+  .layout-root {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 100vh;
+  }
+
+  .layout-sidebar {
+    width: 100% !important;
+    flex-direction: row !important;
+    align-items: center;
+    padding: 12px 16px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .layout-logo {
+    font-size: 14px !important;
+    margin-bottom: 0 !important;
+    margin-right: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .layout-nav {
+    flex-direction: row !important;
+    gap: 4px !important;
+    flex: 1;
+  }
+
+  .layout-nav button {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .layout-spacer { display: none; }
+
+  .layout-main {
+    padding: 16px !important;
+    overflow: auto;
+    flex: 1;
+  }
+
+  /* Cards stack nicely */
+  .card { padding: 14px !important; }
+
+  /* Stat grid: 1 column on very small, 2 on medium */
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Add filter form: stack vertically */
+  .add-list-form {
+    flex-direction: column !important;
+  }
+  .add-list-form input { width: 100% !important; }
+
+  /* Table: make scrollable horizontally */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Hide less important columns on mobile */
+  .col-hide-mobile { display: none; }
+}
