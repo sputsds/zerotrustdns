@@ -1,0 +1,30 @@
+name = "zerotrustdns"
+main = "src/index.ts"
+compatibility_date = "2026-02-28"
+compatibility_flags = ["nodejs_compat"]
+minify = true
+
+[build]
+command = "npm run build"
+
+[assets]
+directory = "./static"
+binding = "ASSETS"
+
+# D1 is auto-provisioned on first deploy — no database_id needed
+[[d1_databases]]
+binding = "DB"
+database_name = "zerotrustdns_db"
+
+[triggers]
+crons = ["*/30 * * * *"]
+
+[placement]
+mode = "smart"
+
+[vars]
+UPSTREAM_DOH = "https://security.cloudflare-dns.com/dns-query"
+MAX_LOG_DAYS = "30"
+SYNC_TIMEOUT_MS = "30000"
+MAX_LIST_DOMAINS = "500000"
+BLOOM_FALSE_POSITIVE_RATE = "0.0001"
