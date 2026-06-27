@@ -142,13 +142,12 @@ export class KeyModel {
       .bind(hash).run();
   }
 
-  /** Generate a cryptographically strong random key (48 bytes → 64 char base64url) */
+  /** Generate a cryptographically strong random key (64 bytes → 88 char Base64) */
   static generateKey(): string {
-    const bytes = crypto.getRandomValues(new Uint8Array(48));
-    // base64url encode
+    const bytes = crypto.getRandomValues(new Uint8Array(64));
     let bin = '';
     bytes.forEach(b => bin += String.fromCharCode(b));
-    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    return btoa(bin);
   }
 
   /** SHA-256 hash a string, returns hex */
