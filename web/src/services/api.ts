@@ -68,7 +68,7 @@ export const api = {
     return res.ok;
   },
 
-  changeKey: (newKey: string) => post<{ ok: boolean }>('/api/change-key', { newKey }),
+  changeKey: (currentKey: string, newKey: string) => post<{ ok: boolean }>('/api/change-key', { currentKey, newKey }),
 
   // Rules
   getRules: () => get<Rule[]>('/api/rules'),

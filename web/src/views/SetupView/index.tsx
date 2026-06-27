@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { api, clearSavedKey } from '../../services/api';
 
 export default function SetupView() {
+  const [currentKey, setCurrentKey] = useState('');
   const [newKey, setNewKey] = useState('');
   const [changingKey, setChangingKey] = useState(false);
   const [keyMsg, setKeyMsg] = useState('');
@@ -64,19 +65,23 @@ export default function SetupView() {
 
   async function handleChangeKey(e: FormEvent) {
     e.preventDefault();
+    if (!currentKey.trim()) {
+      setKeyMsg('Please enter your current access key.');
+      return;
+    }
     if (!newKey.trim() || newKey.trim().length < 16) {
-      setKeyMsg('Key must be at least 16 characters.');
+      setKeyMsg('New key must be at least 16 characters.');
       return;
     }
     setChangingKey(true);
     setKeyMsg('');
     try {
-      await api.changeKey(newKey.trim());
+      await api.changeKey(currentKey.trim(), newKey.trim());
       clearSavedKey();
       setKeyMsg('Key changed. You will be logged out.');
       setTimeout(() => window.location.reload(), 1500);
     } catch {
-      setKeyMsg('Failed to change key.');
+      setKeyMsg('Failed to change key. Current key may be incorrect.');
     } finally { setChangingKey(false); }
   }
 
@@ -168,17 +173,26 @@ export default function SetupView() {
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
             Set a new access key. You will be logged out immediately after changing.
           </p>
-          <form onSubmit={handleChangeKey} style={{ display: 'flex', gap: 10 }}>
+          <form onSubmit={handleChangeKey} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <input
               type="password"
-              placeholder="New access key (min. 16 characters)"
-              value={newKey}
-              onChange={e => setNewKey(e.target.value)}
-              style={{ flex: 1, fontSize: 13 }}
+              placeholder="Current access key"
+              value={currentKey}
+              onChange={e => setCurrentKey(e.target.value)}
+              style={{ fontSize: 13 }}
             />
-            <button type="submit" className="btn-primary" disabled={changingKey || newKey.trim().length < 16} style={{ flexShrink: 0 }}>
-              {changingKey ? 'Saving…' : 'Change Key'}
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <input
+                type="password"
+                placeholder="New access key (min. 16 characters)"
+                value={newKey}
+                onChange={e => setNewKey(e.target.value)}
+                style={{ flex: 1, fontSize: 13 }}
+              />
+              <button type="submit" className="btn-primary" disabled={changingKey || !currentKey.trim() || newKey.trim().length < 16} style={{ flexShrink: 0 }}>
+                {changingKey ? 'Saving…' : 'Change Key'}
+              </button>
+            </div>
           </form>
           {keyMsg && (
             <p style={{ fontSize: 12, marginTop: 8, color: keyMsg.includes('changed') ? 'var(--success)' : 'var(--danger)' }}>{keyMsg}</p>

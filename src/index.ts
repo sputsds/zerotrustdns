@@ -229,9 +229,14 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
   }
 
   if (pathname === '/api/change-key' && request.method === 'POST') {
-    const { newKey } = await parseBody<{ newKey: string }>(request);
+    const { currentKey, newKey } = await parseBody<{ currentKey: string; newKey: string }>(request);
     if (!newKey || newKey.length < 16) return json({ error: 'Key too short' }, 400);
+    if (!currentKey) return json({ error: 'Current key required' }, 400);
     const keyModel = new KeyModel(env.DB);
+    // Verify current key before allowing change
+    const storedHash = await keyModel.getHash();
+    const currentHash = await KeyModel.hash(currentKey);
+    if (currentHash !== storedHash) return json({ error: 'Current key is incorrect' }, 403);
     const hash = await KeyModel.hash(newKey);
     await keyModel.setHash(hash);
     return json({ ok: true });
