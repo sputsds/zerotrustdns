@@ -1,5 +1,5 @@
 # ZeroTrustDNS
-
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cflover/zerotrustdns)
 Self-hosted DNS-over-HTTPS filter on Cloudflare Workers + D1.  
 No terminal. No config. Fork and deploy in under 2 minutes.
 
