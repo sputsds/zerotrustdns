@@ -17,7 +17,12 @@ You will NOT be able to receive future updates.
 ## Option 2 — Fork and Deploy (recommended)
 
 Get future updates with one click via Sync fork.
-Follow the step-by-step guide: [DEPLOY.md](./DEPLOY.md)
+
+1. Fork repo về tài khoản của bạn
+2. Vào Cloudflare Workers & Pages → Create → connect repo fork
+3. Sửa ô **Deploy command** thành `npx wrangler deploy --x-provision`
+4. Ấn **Deploy** → D1 tự tạo, Worker tự deploy
+5. Sau này ấn **Sync fork** → Cloudflare tự redeploy bản mới nhất
 
 ---
 
