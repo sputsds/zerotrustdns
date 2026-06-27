@@ -15,7 +15,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "zerotrustdns_db"
-database_id = "fad50089-872f-44a5-8e0c-efe3e40ef9d9"
+database_id = ""
 
 [triggers]
 crons = ["*/30 * * * *"]
@@ -29,3 +29,4 @@ MAX_LOG_DAYS = "30"
 SYNC_TIMEOUT_MS = "30000"
 MAX_LIST_DOMAINS = "500000"
 BLOOM_FALSE_POSITIVE_RATE = "0.0001"
+
