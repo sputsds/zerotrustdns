@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 minify = true
 
 [build]
-command = "npm run build"
+command = "node setup-d1.mjs && cd web && npm install && npm run build"
 
 [assets]
 directory = "./static"
