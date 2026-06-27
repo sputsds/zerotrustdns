@@ -1,35 +1,31 @@
-# ZeroTrustDNS
+﻿# ZeroTrustDNS
 
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cflover/zerotrustdns)
-
-
-Self-hosted DNS-over-HTTPS filter on Cloudflare Workers + D1.  
+Self-hosted DNS-over-HTTPS filter on Cloudflare Workers + D1.
 No terminal. No config. Fork and deploy in under 2 minutes.
 
 ---
 
 ## Deploy
 
-**1. Fork** this repo on GitHub
+**1. Fork** this repo (top-right Fork button)
 
-**2.** Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → **Workers & Pages → Create → Import a repository**  
-Select your fork → click **Deploy**
+**2.** Go to [Cloudflare Dashboard](https://dash.cloudflare.com) -> **Workers & Pages -> Create -> Connect to Git**
+Select your fork -> click **Deploy**
 
-> Cloudflare automatically builds the project, creates a D1 database, and binds it. No extra steps.
+> Cloudflare automatically builds the project, creates a D1 database, and binds it.
 
 **3. Open your Worker URL**
 
-On first visit, a 64-character access key is generated and shown **once only** — save it to a password manager. You'll be taken straight to the dashboard.
+On first visit, a 64-character access key is shown once only -- save it to a password manager.
 
 ---
 
 ## DoH endpoint
 
-```
 https://YOUR_WORKER_URL/dns-query
-```
 
-Works on: iOS (Wi-Fi → DNS), Android (Private DNS), macOS, Windows, Firefox, Chrome.
+Works on: iOS, Android, macOS, Windows, Firefox, Chrome.
+See setup instructions in the **Privacy -> Set up** tab on the dashboard.
 
 ---
 
@@ -37,24 +33,21 @@ Works on: iOS (Wi-Fi → DNS), Android (Private DNS), macOS, Windows, Firefox, C
 
 | Tab | Description |
 |---|---|
-| Privacy | Blocklist subscriptions (AdGuard + hostsVN on by default) |
-| Allowlist | Always-allow domains + subdomains |
-| Denylist | Always-block domains + subdomains |
-| Analytics | Query counts, block rate, recent log |
-
-Lists sync every 30 minutes automatically.
+| Privacy | Blocklists + DoH setup guide |
+| Allowlist | Always-allow domains |
+| Denylist | Always-block domains |
+| Analytics | Query stats and block rate |
 
 ---
 
 ## Optional env vars
 
-Override in **Workers → Settings → Variables** if needed:
+Override in **Workers -> Settings -> Variables** if needed:
 
 | Variable | Default |
 |---|---|
-| `UPSTREAM_DOH` | `https://security.cloudflare-dns.com/dns-query` |
-| `MAX_LOG_DAYS` | `30` |
-| `SYNC_TIMEOUT_MS` | `30000` |
-| `MAX_LIST_DOMAINS` | `500000` |
-| `BLOOM_FALSE_POSITIVE_RATE` | `0.0001` |
-
+| UPSTREAM_DOH | https://security.cloudflare-dns.com/dns-query |
+| MAX_LOG_DAYS | 30 |
+| SYNC_TIMEOUT_MS | 30000 |
+| MAX_LIST_DOMAINS | 500000 |
+| BLOOM_FALSE_POSITIVE_RATE | 0.0001 |
