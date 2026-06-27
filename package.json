@@ -3,9 +3,9 @@
     "version":  "1.0.0",
     "private":  true,
     "scripts":  {
-                    "build":  "cd web \u0026\u0026 npm install \u0026\u0026 npm run build",
+                    "build":  "cd web && npm install && npm run build",
                     "dev":  "wrangler dev",
-                    "deploy":  "node setup-d1.mjs \u0026\u0026 npx wrangler deploy"
+                    "deploy":  "npx wrangler deploy --x-provision"
                 },
     "dependencies":  {
 

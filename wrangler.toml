@@ -5,11 +5,15 @@ compatibility_flags = ["nodejs_compat"]
 minify = true
 
 [build]
-command = "node setup-d1.mjs && cd web && npm install && npm run build"
+command = "cd web && npm install && npm run build"
 
 [assets]
 directory = "./static"
 binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "zerotrustdns_db"
 
 [triggers]
 crons = ["*/30 * * * *"]
