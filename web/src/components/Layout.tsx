@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
-
-type Tab = 'privacy' | 'allowlist' | 'denylist' | 'analytics';
+import { Tab } from '../App';
 
 interface Props {
   activeTab: Tab;
@@ -9,6 +8,7 @@ interface Props {
 }
 
 const tabs: { id: Tab; label: string }[] = [
+  { id: 'setup', label: 'Setup' },
   { id: 'privacy', label: 'Privacy' },
   { id: 'allowlist', label: 'Allowlist' },
   { id: 'denylist', label: 'Denylist' },
@@ -28,12 +28,25 @@ export default function Layout({ activeTab, onTabChange, children }: Props) {
         flexShrink: 0,
         padding: '20px 12px',
       }}>
-        {/* Logo - no icon, no link */}
+        {/* Logo — clicking navigates to setup (home) */}
         <div style={{ padding: '0 8px', marginBottom: 28 }}>
-          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', letterSpacing: '-0.2px' }}>ZeroTrustDNS</span>
+          <a
+            href="#setup"
+            onClick={(e) => { e.preventDefault(); onTabChange('setup'); }}
+            style={{
+              fontWeight: 700,
+              fontSize: 15,
+              color: 'var(--text)',
+              letterSpacing: '-0.2px',
+              textDecoration: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            ZeroTrustDNS
+          </a>
         </div>
 
-        {/* Nav - text only, no icons */}
+        {/* Nav */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {tabs.map(tab => (
             <button
@@ -60,21 +73,7 @@ export default function Layout({ activeTab, onTabChange, children }: Props) {
         </nav>
 
         <div style={{ flex: 1 }} />
-
-        {/* DoH info */}
-        <div style={{
-          background: 'var(--surface2)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius)',
-          padding: '10px 12px',
-          fontSize: 11,
-          color: 'var(--text-muted)',
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>DoH Endpoint</div>
-          <code style={{ wordBreak: 'break-all', fontSize: 10.5 }}>
-            {window.location.origin}/dns-query
-          </code>
-        </div>
+        {/* DoH endpoint widget removed */}
       </aside>
 
       {/* Main content */}

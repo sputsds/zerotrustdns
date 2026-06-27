@@ -90,7 +90,7 @@ async function parseBody<T>(request: Request): Promise<T> {
 // ── Main fetch handler ─────────────────────────────────────────────────────
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // Bootstrap DB schema on every cold start (idempotent)
     await bootstrapDB(env);
 
@@ -98,7 +98,7 @@ export default {
     const { pathname } = url;
 
     if (pathname === '/dns-query') {
-      return handleDoH(request, env);
+      return handleDoH(request, env, ctx);
     }
 
     if (pathname === '/api/setup' && request.method === 'POST') {
@@ -151,7 +151,7 @@ async function handleSetup(_request: Request, env: Env): Promise<Response> {
 
 // ── DoH Handler ───────────────────────────────────────────────────────────
 
-async function handleDoH(request: Request, env: Env): Promise<Response> {
+async function handleDoH(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   if (request.method !== 'POST' && request.method !== 'GET') {
     return new Response('Method Not Allowed', { status: 405 });
   }
@@ -164,13 +164,16 @@ async function handleDoH(request: Request, env: Env): Promise<Response> {
   const result = await resolveDNS(query, rules, env);
 
   if (result.action !== 'FAIL') {
-    logModel.add({
-      timestamp: Math.floor(Date.now() / 1000),
-      domain: query.name,
-      record_type: query.type,
-      action: result.action,
-      reason: result.reason,
-    }).catch(() => {});
+    // Use waitUntil so the log write completes even after response is returned
+    ctx.waitUntil(
+      logModel.add({
+        timestamp: Math.floor(Date.now() / 1000),
+        domain: query.name,
+        record_type: query.type,
+        action: result.action,
+        reason: result.reason,
+      }).catch(() => {})
+    );
   }
 
   return new Response(result.answer, {

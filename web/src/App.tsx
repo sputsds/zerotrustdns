@@ -3,17 +3,37 @@ import { api, setKey, loadSavedKey } from './services/api';
 import FirstRunScreen from './components/FirstRunScreen';
 import LoginScreen from './components/LoginScreen';
 import Layout from './components/Layout';
+import SetupView from './views/SetupView';
 import PrivacyView from './views/PrivacyView';
 import RulesView from './views/RulesView';
 import AnalyticsView from './views/AnalyticsView';
 
 type AppState = 'loading' | 'first-run' | 'login' | 'dashboard';
-type Tab = 'privacy' | 'allowlist' | 'denylist' | 'analytics';
+export type Tab = 'setup' | 'privacy' | 'allowlist' | 'denylist' | 'analytics';
+
+const VALID_TABS: Tab[] = ['setup', 'privacy', 'allowlist', 'denylist', 'analytics'];
+
+function getHashTab(): Tab {
+  const hash = window.location.hash.replace('#', '') as Tab;
+  return VALID_TABS.includes(hash) ? hash : 'setup';
+}
 
 export default function App() {
   const [state, setState] = useState<AppState>('loading');
   const [firstRunKey, setFirstRunKey] = useState('');
-  const [tab, setTab] = useState<Tab>('privacy');
+  const [tab, setTab] = useState<Tab>(getHashTab);
+
+  // Keep URL hash in sync with active tab
+  useEffect(() => {
+    window.location.hash = tab;
+  }, [tab]);
+
+  // Listen for hash changes (browser back/forward)
+  useEffect(() => {
+    const handler = () => setTab(getHashTab());
+    window.addEventListener('hashchange', handler);
+    return () => window.removeEventListener('hashchange', handler);
+  }, []);
 
   useEffect(() => {
     api.getStatus().then(status => {
@@ -27,7 +47,6 @@ export default function App() {
           }
         }).catch(() => setState('login'));
       } else {
-        // Try auto-login with saved key
         const saved = loadSavedKey();
         if (saved) {
           setKey(saved);
@@ -73,6 +92,7 @@ export default function App() {
 
   return (
     <Layout activeTab={tab} onTabChange={setTab}>
+      {tab === 'setup' && <SetupView />}
       {tab === 'privacy' && <PrivacyView />}
       {tab === 'allowlist' && (
         <RulesView
