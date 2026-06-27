@@ -1,11 +1,52 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { api, clearSavedKey } from '../../services/api';
+
+const UPSTREAM_OPTIONS = [
+  { label: 'Cloudflare Gateway 1', value: 'https://qi0w15q016.cloudflare-gateway.com/dns-query' },
+  { label: 'Cloudflare Gateway 2', value: 'https://6in6o9osam.cloudflare-gateway.com/dns-query' },
+  { label: 'Google DNS', value: 'https://dns.google/dns-query' },
+  { label: 'Quad9', value: 'https://dns11.quad9.net/dns-query' },
+  { label: 'NextDNS 1', value: 'https://dns.nextdns.io/458877' },
+  { label: 'NextDNS 2', value: 'https://dns.nextdns.io/2e3434' },
+  { label: 'Custom…', value: '__custom__' },
+];
 
 export default function SetupView() {
   const [currentKey, setCurrentKey] = useState('');
   const [newKey, setNewKey] = useState('');
   const [changingKey, setChangingKey] = useState(false);
   const [keyMsg, setKeyMsg] = useState('');
+
+  const [upstream, setUpstream] = useState('https://security.cloudflare-dns.com/dns-query');
+  const [customUpstream, setCustomUpstream] = useState('');
+  const [savingUpstream, setSavingUpstream] = useState(false);
+  const [upstreamMsg, setUpstreamMsg] = useState('');
+
+  useEffect(() => {
+    api.getSettings().then(s => {
+      const known = UPSTREAM_OPTIONS.find(o => o.value === s.upstream_doh);
+      if (known) {
+        setUpstream(s.upstream_doh);
+      } else {
+        setUpstream('__custom__');
+        setCustomUpstream(s.upstream_doh);
+      }
+    }).catch(() => {});
+  }, []);
+
+  async function handleSaveUpstream(e: FormEvent) {
+    e.preventDefault();
+    const url = upstream === '__custom__' ? customUpstream.trim() : upstream;
+    if (!url.startsWith('https://')) { setUpstreamMsg('URL phải bắt đầu bằng https://'); return; }
+    setSavingUpstream(true);
+    setUpstreamMsg('');
+    try {
+      await api.saveSettings(url);
+      setUpstreamMsg('Đã lưu! DNS queries sẽ dùng upstream mới ngay lập tức.');
+    } catch {
+      setUpstreamMsg('Lưu thất bại.');
+    } finally { setSavingUpstream(false); }
+  }
 
   const dohEndpoint = `${window.location.origin}/dns-query`;
 
@@ -93,6 +134,38 @@ export default function SetupView() {
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* Upstream DNS */}
+        <div className="card">
+          <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Upstream DNS Resolver</h3>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
+            Chọn server DNS mà ZeroTrustDNS sẽ forward query tới sau khi lọc. Google DNS và Quad9 hỗ trợ ECS giúp giảm latency.
+          </p>
+          <form onSubmit={handleSaveUpstream} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <select value={upstream} onChange={e => setUpstream(e.target.value)}>
+              {UPSTREAM_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            {upstream === '__custom__' && (
+              <input
+                type="url"
+                placeholder="https://your-upstream/dns-query"
+                value={customUpstream}
+                onChange={e => setCustomUpstream(e.target.value)}
+                style={{ fontSize: 13 }}
+              />
+            )}
+            <div>
+              <button type="submit" className="btn-primary" disabled={savingUpstream} style={{ fontSize: 13 }}>
+                {savingUpstream ? 'Đang lưu…' : 'Lưu'}
+              </button>
+            </div>
+          </form>
+          {upstreamMsg && (
+            <p style={{ fontSize: 12, marginTop: 8, color: upstreamMsg.includes('thất bại') ? 'var(--danger)' : 'var(--success)' }}>{upstreamMsg}</p>
+          )}
+        </div>
 
         {/* DoH Endpoint */}
         <div className="card">

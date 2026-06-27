@@ -72,7 +72,7 @@ export async function resolveDNS(
   env: Env
 ): Promise<ResolutionResult> {
   const domain = query.name.toLowerCase();
-  const upstream = env.UPSTREAM_DOH || 'https://security.cloudflare-dns.com/dns-query';
+  const upstream = env.UPSTREAM_DOH || 'https://qi0w15q016.cloudflare-gateway.com/dns-query';
 
   // 1. Allow rules (exact + subdomain)
   const allowRule = rules.find(r => r.type === 'ALLOW' && (domain === r.domain || domain.endsWith(`.${r.domain}`)));

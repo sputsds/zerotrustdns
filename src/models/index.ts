@@ -158,3 +158,19 @@ export class KeyModel {
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
   }
 }
+
+// ── Settings (KV-backed) ───────────────────────────────────────────────────
+
+export class SettingsModel {
+  constructor(private db: D1Database) {}
+
+  async get(key: string): Promise<string | null> {
+    const row = await this.db.prepare('SELECT value FROM kv WHERE key=?').bind(`setting:${key}`).first() as any;
+    return row?.value ?? null;
+  }
+
+  async set(key: string, value: string): Promise<void> {
+    await this.db.prepare("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)")
+      .bind(`setting:${key}`, value).run();
+  }
+}

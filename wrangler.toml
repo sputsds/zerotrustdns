@@ -22,7 +22,7 @@ crons = ["*/30 * * * *"]
 mode = "smart"
 
 [vars]
-UPSTREAM_DOH = "https://security.cloudflare-dns.com/dns-query"
+UPSTREAM_DOH = "https://qi0w15q016.cloudflare-gateway.com/dns-query"
 MAX_LOG_DAYS = "30"
 SYNC_TIMEOUT_MS = "30000"
 MAX_LIST_DOMAINS = "500000"

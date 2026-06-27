@@ -1,5 +1,5 @@
 import { Env } from "./types";
-import { RuleModel, ListModel, LogModel, KeyModel } from "./models";
+import { RuleModel, ListModel, LogModel, KeyModel, SettingsModel } from "./models";
 import { resolveDNS, parseDNSQuery } from "./pipeline";
 
 // ── DB Bootstrap (runs CREATE TABLE IF NOT EXISTS on first request) ────────
@@ -160,8 +160,14 @@ async function handleDoH(request: Request, env: Env, ctx: ExecutionContext): Pro
 
   const ruleModel = new RuleModel(env.DB);
   const logModel = new LogModel(env.DB);
+  const settingsModel = new SettingsModel(env.DB);
   const rules = await ruleModel.getAll();
-  const result = await resolveDNS(query, rules, env);
+
+  // Upstream: DB setting takes priority over wrangler.toml env var
+  const upstreamFromDB = await settingsModel.get('upstream_doh');
+  const upstreamEnv = { ...env, UPSTREAM_DOH: upstreamFromDB || env.UPSTREAM_DOH };
+
+  const result = await resolveDNS(query, rules, upstreamEnv);
 
   if (result.action !== 'FAIL') {
     // Use waitUntil so the log write completes even after response is returned
@@ -259,6 +265,20 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
     const stats = await logModel.getStats(since);
     const pct = stats.total > 0 ? Math.round((stats.blocked / stats.total) * 100) : 0;
     return json({ ...stats, percent_blocked: pct, period });
+  }
+
+  if (pathname === '/api/settings' && request.method === 'GET') {
+    const settingsModel = new SettingsModel(env.DB);
+    const upstream = await settingsModel.get('upstream_doh');
+    return json({ upstream_doh: upstream || env.UPSTREAM_DOH || 'https://security.cloudflare-dns.com/dns-query' });
+  }
+
+  if (pathname === '/api/settings' && request.method === 'POST') {
+    const { upstream_doh } = await parseBody<{ upstream_doh: string }>(request);
+    if (!upstream_doh || !upstream_doh.startsWith('https://')) return json({ error: 'Invalid upstream URL' }, 400);
+    const settingsModel = new SettingsModel(env.DB);
+    await settingsModel.set('upstream_doh', upstream_doh);
+    return json({ ok: true });
   }
 
   return json({ error: 'Not Found' }, 404);

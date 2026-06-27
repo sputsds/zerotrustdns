@@ -82,6 +82,10 @@ export const api = {
   deleteList: (id: number) => del(`/api/lists/${id}`),
   toggleList: (id: number, enabled: boolean) => patch(`/api/lists/${id}`, { enabled }),
 
+  // Settings
+  getSettings: () => get<{ upstream_doh: string }>('/api/settings'),
+  saveSettings: (upstream_doh: string) => post<{ ok: boolean }>('/api/settings', { upstream_doh }),
+
   // Logs & Analytics
   getLogs: (limit = 200) => get<QueryLog[]>(`/api/logs?limit=${limit}`),
   getAnalytics: (period = '24h') => get<Analytics>(`/api/analytics?period=${period}`),
