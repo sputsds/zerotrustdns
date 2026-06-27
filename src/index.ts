@@ -2,6 +2,57 @@ import { Env, Rule } from "./types";
 import { RuleModel, ListModel, LogModel, KeyModel, SettingsModel } from "./models";
 import { resolveDNS, parseDNSQuery, invalidateBloomCache } from "./pipeline";
 
+// ── Auto-bootstrap DB ──────────────────────────────────────────────────────
+// Tự động tạo bảng nếu chưa có — người fork về không cần chạy migration thủ công.
+
+let _dbBootstrapped = false;
+
+async function ensureDB(db: D1Database): Promise<void> {
+  if (_dbBootstrapped) return;
+  await db.batch([
+    db.prepare(`CREATE TABLE IF NOT EXISTS lists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      url TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      type TEXT CHECK(type IN ('block','allow')) NOT NULL DEFAULT 'block',
+      enabled INTEGER DEFAULT 1,
+      last_synced_at INTEGER,
+      domain_count INTEGER DEFAULT 0,
+      sync_error TEXT
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT CHECK(type IN ('ALLOW','BLOCK')) NOT NULL,
+      domain TEXT NOT NULL UNIQUE
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS bloom_chunks (
+      chunk_index INTEGER PRIMARY KEY,
+      data BLOB NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS bloom_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      timestamp INTEGER NOT NULL,
+      domain TEXT NOT NULL,
+      record_type TEXT NOT NULL,
+      action TEXT CHECK(action IN ('PASS','BLOCK')) NOT NULL,
+      reason TEXT
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS kv (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_logs_time ON logs(timestamp)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_logs_domain ON logs(domain)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_rules_domain ON rules(domain)`),
+  ]);
+  _dbBootstrapped = true;
+}
+
 // ── In-memory caches for hot path (rules + upstream URL) ──────────────────
 // These avoid D1 queries on every DNS request.
 // TTL: 60s — rule changes in the UI propagate within 1 minute.
@@ -71,8 +122,8 @@ async function parseBody<T>(request: Request): Promise<T> {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // NOTE: bootstrapDB() removed from hot path.
-    // Run migrations once via: wrangler d1 execute zerotrustdns_db --file=migrations/0000_init.sql --remote
+    // Auto-create tables on first request — safe for forked deployments
+    await ensureDB(env.DB);
 
     const url = new URL(request.url);
     const { pathname } = url;
@@ -179,13 +230,13 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
     const { type, domain } = await parseBody<{ type: 'ALLOW' | 'BLOCK'; domain: string }>(request);
     if (!['ALLOW', 'BLOCK'].includes(type) || !domain) return json({ error: 'Invalid' }, 400);
     await ruleModel.add(type, domain);
-    invalidateHotCaches(); // rule mới → clear cache ngay
+    invalidateHotCaches();
     return json({ ok: true });
   }
   const ruleMatch = pathname.match(/^\/api\/rules\/(\d+)$/);
   if (ruleMatch && request.method === 'DELETE') {
     await ruleModel.remove(Number(ruleMatch[1]));
-    invalidateHotCaches(); // rule bị xoá → clear cache ngay
+    invalidateHotCaches();
     return json({ ok: true });
   }
 
@@ -226,7 +277,7 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
   if (pathname === '/api/sync' && request.method === 'POST') {
     const { handleScheduled } = await import('./cron');
     await handleScheduled({} as any, env);
-    invalidateBloomCache(); // bloom vừa rebuild → clear
+    invalidateBloomCache();
     return json({ ok: true });
   }
 
@@ -254,7 +305,7 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
     if (!upstream_doh || !upstream_doh.startsWith('https://')) return json({ error: 'Invalid upstream URL' }, 400);
     const settingsModel = new SettingsModel(env.DB);
     await settingsModel.set('upstream_doh', upstream_doh);
-    invalidateHotCaches(); // upstream đổi → clear cache ngay
+    invalidateHotCaches();
     return json({ ok: true });
   }
 
