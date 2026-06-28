@@ -4,6 +4,15 @@ compatibility_date = "2026-02-28"
 compatibility_flags = ["nodejs_compat"]
 minify = true
 
+# Smart Placement: lets Cloudflare run this Worker on the edge node closest to
+# the CLIENT instead of forcing it near the D1 primary region. Since the DNS
+# hot path no longer needs a D1 round-trip per request (rules/bloom are now
+# served from in-memory cache, refreshed in the background), the Worker is
+# free to run wherever is fastest for the person actually making the query —
+# this is what removes the random latency spikes seen from far-away regions.
+[placement]
+mode = "smart"
+
 [build]
 command = "cd web && npm install && npm run build"
 
@@ -16,7 +25,10 @@ binding = "DB"
 database_name = "zerotrustdns_db"
 
 [triggers]
-crons = ["*/30 * * * *"]
+# Filter lists (AdGuard + hostsVN) refresh every hour — these are static text
+# lists that don't change minute-to-minute, so hourly is plenty and cuts the
+# background D1-write load by 2x vs the previous 30-minute interval.
+crons = ["0 * * * *"]
 
 
 [vars]

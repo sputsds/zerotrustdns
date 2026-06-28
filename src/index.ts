@@ -54,36 +54,91 @@ async function ensureDB(db: D1Database): Promise<void> {
 }
 
 // ── In-memory caches for hot path (rules + upstream URL) ──────────────────
-// These avoid D1 queries on every DNS request.
-// TTL: 60s — rule changes in the UI propagate within 1 minute.
+// CRITICAL FOR LATENCY: the DNS hot path (handleDoH) must NEVER block on a D1
+// query. D1 is a real network round-trip (often 50-300ms depending on how far
+// the request lands from the D1 primary region) — paying that cost inline on
+// a DNS query is what causes random latency spikes >100ms.
+//
+// Strategy (matches how a pure in-memory edge resolver behaves):
+//  - Rules are kept in RAM as Map/Set for O(1) lookup (no array .find() scan).
+//  - Soft TTL = 15 minutes: once loaded, we keep serving from RAM and only
+//    refresh in the BACKGROUND (ctx.waitUntil) after the TTL passes — the
+//    request currently being served is never delayed by the refresh.
+//  - "Sync Now" in the UI calls invalidateHotCaches() which forces a
+//    synchronous reload on the very next request, so changes are guaranteed
+//    to apply immediately when the user explicitly asks for it.
 
-interface RulesCache { rules: Rule[]; at: number; }
-interface UpstreamCache { url: string; at: number; }
+interface RulesCache {
+  allowExact: Set<string>;
+  blockExact: Set<string>;
+  at: number;
+  refreshing: boolean;
+}
+interface UpstreamCache { url: string; at: number; refreshing: boolean; }
 
 let _rulesCache: RulesCache | null = null;
 let _upstreamCache: UpstreamCache | null = null;
-const HOT_CACHE_TTL = 60_000; // 60 seconds
+const HOT_CACHE_TTL = 15 * 60_000; // 15 minutes — see comment above
 
-async function getCachedRules(db: D1Database): Promise<Rule[]> {
-  if (_rulesCache && Date.now() - _rulesCache.at < HOT_CACHE_TTL) {
-    return _rulesCache.rules;
+function buildRuleIndex(rules: Rule[]): Omit<RulesCache, 'at' | 'refreshing'> {
+  const allowExact = new Set<string>();
+  const blockExact = new Set<string>();
+  for (const r of rules) {
+    if (r.type === 'ALLOW') allowExact.add(r.domain);
+    else blockExact.add(r.domain);
   }
+  return { allowExact, blockExact };
+}
+
+async function loadRulesIntoCache(db: D1Database): Promise<RulesCache> {
   const rules = await new RuleModel(db).getAll();
-  _rulesCache = { rules, at: Date.now() };
-  return rules;
+  const index = buildRuleIndex(rules);
+  const cache: RulesCache = { ...index, at: Date.now(), refreshing: false };
+  _rulesCache = cache;
+  return cache;
+}
+
+// Returns rules immediately from RAM. Only awaits D1 on the very first call
+// (cold start) — every call after that is non-blocking, even past the TTL.
+async function getCachedRules(db: D1Database): Promise<RulesCache> {
+  if (!_rulesCache) {
+    // Cold start: nothing in RAM yet, we have to load once.
+    return loadRulesIntoCache(db);
+  }
+  const stale = Date.now() - _rulesCache.at > HOT_CACHE_TTL;
+  if (stale && !_rulesCache.refreshing) {
+    _rulesCache.refreshing = true;
+    // Fire-and-forget background refresh — current request keeps using the
+    // (slightly stale) RAM copy and is never delayed by this.
+    loadRulesIntoCache(db).catch(() => { if (_rulesCache) _rulesCache.refreshing = false; });
+  }
+  return _rulesCache;
+}
+
+async function loadUpstreamIntoCache(db: D1Database, envDefault: string | undefined): Promise<UpstreamCache> {
+  const fromDB = await new SettingsModel(db).get('upstream_doh');
+  const url = fromDB || envDefault || 'https://security.cloudflare-dns.com/dns-query';
+  const cache: UpstreamCache = { url, at: Date.now(), refreshing: false };
+  _upstreamCache = cache;
+  return cache;
 }
 
 async function getCachedUpstream(db: D1Database, envDefault: string | undefined): Promise<string> {
-  if (_upstreamCache && Date.now() - _upstreamCache.at < HOT_CACHE_TTL) {
-    return _upstreamCache.url;
+  if (!_upstreamCache) {
+    const c = await loadUpstreamIntoCache(db, envDefault);
+    return c.url;
   }
-  const fromDB = await new SettingsModel(db).get('upstream_doh');
-  const url = fromDB || envDefault || 'https://security.cloudflare-dns.com/dns-query';
-  _upstreamCache = { url, at: Date.now() };
-  return url;
+  const stale = Date.now() - _upstreamCache.at > HOT_CACHE_TTL;
+  if (stale && !_upstreamCache.refreshing) {
+    _upstreamCache.refreshing = true;
+    loadUpstreamIntoCache(db, envDefault).catch(() => { if (_upstreamCache) _upstreamCache.refreshing = false; });
+  }
+  return _upstreamCache.url;
 }
 
-// Invalidate hot caches — called after any write to rules or settings
+// Invalidate hot caches — called after any write to rules/settings, and by
+// "Sync Now". Setting to null forces the NEXT request to reload synchronously
+// (still just one request pays the cost, not every request like before).
 function invalidateHotCaches() {
   _rulesCache = null;
   _upstreamCache = null;
@@ -188,12 +243,13 @@ async function handleDoH(request: Request, env: Env, ctx: ExecutionContext): Pro
   const query = await parseDNSQuery(request);
   if (!query) return new Response('Bad Request', { status: 400 });
 
-  // Use cached rules + upstream — no D1 query on hot path unless cache is stale
-  const rules = await getCachedRules(env.DB);
+  // Rules + upstream are served straight from RAM — never blocks on D1 here.
+  // (Background refresh, if needed, happens inside getCachedRules/getCachedUpstream.)
+  const rulesCache = await getCachedRules(env.DB);
   const upstreamUrl = await getCachedUpstream(env.DB, env.UPSTREAM_DOH);
   const upstreamEnv = { ...env, UPSTREAM_DOH: upstreamUrl };
 
-  const result = await resolveDNS(query, rules, upstreamEnv);
+  const result = await resolveDNS(query, rulesCache, upstreamEnv);
 
   if (result.action !== 'FAIL') {
     ctx.waitUntil(
@@ -277,7 +333,11 @@ async function handleAPI(request: Request, env: Env, url: URL): Promise<Response
   if (pathname === '/api/sync' && request.method === 'POST') {
     const { handleScheduled } = await import('./cron');
     await handleScheduled({} as any, env);
+    // "Sync Now" forces everything to take effect immediately: filter lists
+    // (bloom) AND any allow/deny rule or upstream change the user made since
+    // the last background refresh — the next DNS query reloads all of it.
     invalidateBloomCache();
+    invalidateHotCaches();
     return json({ ok: true });
   }
 
